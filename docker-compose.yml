@@ -1,0 +1,39 @@
+volumes:
+  mosquitto_data:
+  mosquitto_log:
+  mosquitto_auth:
+
+services:
+  mosquitto-init:
+    image: eclipse-mosquitto:2.0
+    container_name: dispensador-mosquitto-init
+    restart: "no"
+    environment:
+      - MQTT_USERNAME=${MQTT_USERNAME}
+      - MQTT_PASSWORD=${MQTT_PASSWORD}
+    volumes:
+      - mosquitto_auth:/mosquitto/auth
+    entrypoint: /bin/sh
+    command: >
+      -c "mkdir -p /mosquitto/auth &&
+          mosquitto_passwd -c -b /mosquitto/auth/passwd $$MQTT_USERNAME $$MQTT_PASSWORD &&
+          echo '[init] Credenciales creadas para:' $$MQTT_USERNAME"
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: dispensador-mosquitto
+    restart: unless-stopped
+    depends_on:
+      mosquitto-init:
+        condition: service_completed_successfully
+    ports:
+      - '1883:1883'
+      - '9001:9001'
+    environment:
+      - MQTT_USERNAME=${MQTT_USERNAME}
+      - MQTT_PASSWORD=${MQTT_PASSWORD}
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_auth:/mosquitto/auth
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
